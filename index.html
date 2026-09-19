@@ -1,8 +1,77 @@
----
-layout: home
-title: vi cindy.choi
-subtitle: 
-║║╔║║╔╗ ║
-╠╣╠║║║║ ║
-║║╚╚╚╚╝ O
----
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Interactive AI Notes</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/site/palette.css">
+<link rel="stylesheet" href="/assets/site/style.css">
+</head>
+<body>
+
+<canvas id="backdrop"></canvas>
+
+<main class="page">
+
+  <header class="masthead">
+    <p class="masthead__eyebrow">Interactive Notes</p>
+    <h1 class="masthead__title">AI를 눈으로<br>확인하는 노트</h1>
+    <p class="masthead__lede">
+      개념을 읽는 대신 직접 값을 바꾸고, 그 변화가 어떻게 번져나가는지 관찰하기 위한
+      개인 학습 공간입니다. 각 토픽은 하나의 독립된 실험 페이지입니다.
+    </p>
+  </header>
+
+  <nav class="topics">
+
+    <a class="topic" href="/experiments/token-cost/">
+      <div class="topic__row">
+        <span class="topic__index">01</span>
+        <h2 class="topic__name">Token Cost Playground</h2>
+        <span class="topic__arrow">&#8594;</span>
+      </div>
+      <p class="topic__note">문장이 토큰으로 어떻게 쪼개지고, 그 수가 비용과 컨텍스트 사용량으로 이어지는지.</p>
+    </a>
+
+    <a class="topic" href="/experiments/model-routing/">
+      <div class="topic__row">
+        <span class="topic__index">02</span>
+        <h2 class="topic__name">Model Routing</h2>
+        <span class="topic__arrow">&#8594;</span>
+      </div>
+      <p class="topic__note">난이도·비용·지연시간 조건이 바뀔 때 라우터가 어떤 모델을 고르는지.</p>
+    </a>
+
+    <a class="topic" href="/experiments/agent-loop/">
+      <div class="topic__row">
+        <span class="topic__index">03</span>
+        <h2 class="topic__name">Agent Loop</h2>
+        <span class="topic__arrow">&#8594;</span>
+      </div>
+      <p class="topic__note">계획 → 도구 선택 → 실행 → 관찰 → 재시도로 이어지는 상태 전이.</p>
+    </a>
+
+    <div class="topic topic--soon">
+      <div class="topic__row">
+        <span class="topic__index">04</span>
+        <h2 class="topic__name">Sampling &amp; Temperature</h2>
+        <span class="topic__tag">soon</span>
+      </div>
+      <p class="topic__note">같은 프롬프트를 100번 돌렸을 때 분포가 어떻게 달라지는지.</p>
+    </div>
+
+  </nav>
+
+  <footer class="colophon">
+    <span>Personal study notes</span>
+    <a href="https://github.com/cindy-choi/cindy-choi.github.io">GitHub</a>
+  </footer>
+
+</main>
+
+<script src="/assets/site/backdrop.js"></script>
+</body>
+</html>

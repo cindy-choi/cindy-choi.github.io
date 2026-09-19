@@ -1,0 +1,35 @@
+/* ------------------------------------------------------------------
+   Palette — warm gradient artifacts on a black & white page.
+   Warm hues are used ONLY for background artifacts and small accents.
+   Text and layout stay strictly black / white / grey.
+------------------------------------------------------------------ */
+
+:root {
+  /* Warm core (from reference imagery) */
+  --warm-amber:    #f59300;
+  --warm-tangerine:#f26b0f;
+  --warm-ember:    #e8300c;
+  --warm-magenta:  #f0157a;
+  --warm-butter:   #ffc24b;
+  --warm-blush:    #ffb59c;
+
+  /* Warm neutrals */
+  --warm-lilac:    #e3d3ec;
+  --warm-cream:    #f6efe6;
+
+  /* Monochrome scale */
+  --ink:           #000000;
+  --ink-soft:      #1a1a1a;
+  --ink-muted:     #6b6b6b;
+  --ink-faint:     #a3a3a3;
+  --rule:          #e6e6e6;
+  --paper:         #ffffff;
+
+  /* Type */
+  --font-display: "Cormorant Garamond", "Times New Roman", serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+
+  /* Rhythm */
+  --page-max: 760px;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
