@@ -17,6 +17,11 @@ const MAGENTA = getComputedStyle(document.documentElement)
   .getPropertyValue("--warm-magenta").trim() || "#f0157a";
 
 const fmt = d3.format(".2f");
+const CHOICE_LABELS = {
+  returns: "환불·교환",
+  product_support: "제품 결함",
+  delivery_support: "배송 문제"
+};
 
 // ---- view: choice (horizontal probability bars) --------------------
 
@@ -32,7 +37,7 @@ const choiceView = (() => {
     .attr("transform", (d, i) => `translate(0, ${18 + i * ROW})`);
 
   rows.append("text").attr("class", "viz-label")
-    .attr("y", 4).text(d => d);
+    .attr("y", 4).text(d => CHOICE_LABELS[d]);
   rows.append("rect")
     .attr("class", "track")
     .attr("x", LABEL).attr("y", -8).attr("height", 16)
@@ -86,7 +91,7 @@ const scoreView = (() => {
     .attr("fill", "#111");
   bars.append("text").attr("class", "viz-tick")
     .attr("x", (d, i) => x(i)).attr("y", AXIS_Y + 18)
-    .attr("text-anchor", "middle").text(d => d);
+    .attr("text-anchor", "middle").text((d, i) => ["0 · 차분", "1 · 불편", "2 · 격앙"][i]);
   bars.append("text").attr("class", "score-prob")
     .attr("x", (d, i) => x(i)).attr("y", AXIS_Y - 8)
     .attr("text-anchor", "middle").text("");
@@ -117,7 +122,7 @@ const scoreView = (() => {
     marker.transition().duration(DUR).ease(EASE)
       .attr("transform", `translate(${x(expected)}, ${AXIS_Y + 8})`);
     d3.select("#ans-score").html(
-      `<code>score: ${expected.toFixed(2)}</code> · probs의 기대값 (레벨 사이 값)`);
+      `<code>score: ${expected.toFixed(2)}</code> · 확률로 가중한 평균`);
   };
 })();
 
@@ -205,6 +210,7 @@ function update() {
   scoreView(sc);
   noulView(sc);
   if (typeof window.__jevRenderExtras === "function") window.__jevRenderExtras(sc);
+  if (typeof window.__jevRenderStructure === "function") window.__jevRenderStructure(sc);
 }
 
 update();
@@ -215,7 +221,7 @@ update();
 // ====================================================================
 
 const confView = (() => {
-  const OPTS = ["billing", "technical", "account", "spam"];
+  const OPTS = ["returns", "product_support", "delivery_support", "other"];
   const conf = { probs: [0.55, 0.25, 0.12, 0.08] };
 
   const W = 560, H = 300, LABEL = 86, PAD_T = 24, ROW = (H - PAD_T * 2) / OPTS.length;
@@ -250,7 +256,8 @@ const confView = (() => {
   const rows = svg.selectAll("g").data(OPTS).join("g")
     .attr("transform", (d, i) => `translate(0, ${PAD_T + i * ROW + ROW / 2})`);
 
-  rows.append("text").attr("class", "viz-label").attr("y", 5).text(d => d);
+  rows.append("text").attr("class", "viz-label").attr("y", 5)
+    .text(d => CHOICE_LABELS[d] || "기타");
 
   rows.append("rect")
     .attr("x", LABEL).attr("y", -BARH / 2).attr("height", BARH)
@@ -289,16 +296,16 @@ const confView = (() => {
     .attr("font-size", 40).attr("fill", "#111");
 
   const cap = g.append("text").attr("class", "viz-tick")
-    .attr("text-anchor", "middle").attr("y", 22).text("confidence");
+    .attr("text-anchor", "middle").attr("y", 22).text("교육용 집중도");
 
   const zone = g.append("text")
     .attr("text-anchor", "middle").attr("y", 52)
     .attr("font-size", 13);
 
   function zoneOf(c) {
-    if (c >= 0.75) return ["자동 처리", "#111"];
-    if (c >= 0.4) return ["재확인 후 진행", AMBER];
-    return ["사람에게 에스컬레이션", MAGENTA];
+    if (c >= 0.75) return ["한 선택지에 집중", "#111"];
+    if (c >= 0.4) return ["일부 선택지에 집중", AMBER];
+    return ["여러 선택지에 분산", MAGENTA];
   }
 
   function render(animate) {
@@ -338,8 +345,8 @@ const confView = (() => {
 
     d3.select("#conf-readout").html(
       `교육용 정규화 엔트로피 지표 <span class="ro-dist">[${p.map(fmt).join(", ")}]</span>` +
-      ` → confidence <span class="ro-num">${fmt(c)}</span>` +
-      ` · 가장 확률 높은 답 <span class="ro-win">${OPTS[winner]}</span>` +
+      ` → 집중도 <span class="ro-num">${fmt(c)}</span>` +
+      ` · 가장 확률 높은 답 <span class="ro-win">${CHOICE_LABELS[OPTS[winner]] || "기타"}</span>` +
       ` <small>(공식 SDK 수식 아님)</small>`);
   }
 
@@ -408,7 +415,7 @@ const confView = (() => {
 
   function send() {
     count += 1;
-    d3.select("#duel-count").text(`${count}번 보냄 — 왼쪽은 매번 다르고, 오른쪽은 거의 같다`);
+    d3.select("#duel-count").text(`${count}번째 예시 · 답장 문장과 P(환불 요청)의 비교`);
 
     // LLM side: typewriter, different reply each time
     const reply = REPLIES[(count - 1) % REPLIES.length];
@@ -444,168 +451,149 @@ const confView = (() => {
 
 (() => {
   const canvas = document.getElementById("calib-canvas");
-  const ctx = canvas.getContext("2d");
-  const W = canvas.width, H = canvas.height;
-  const M = { l: 52, r: 20, t: 18, b: 46 };
-  const PW = W - M.l - M.r, PH = H - M.t - M.b;
-  const NB = 10;                       // buckets
-  const N = 200;                       // predictions
-  const R = 4;                         // ball radius
-
+  const context = canvas.getContext("2d");
+  const margin = { left: 64, right: 26, top: 28, bottom: 60 };
+  const plotWidth = canvas.width - margin.left - margin.right;
+  const plotHeight = canvas.height - margin.top - margin.bottom;
+  const bucketCount = 10;
+  const sampleCount = 200;
   let overconf = 0;
-  let balls = [];                      // {stated, correct, x, y, vy, targetY, settled}
-  let dropping = false;
+  let selectedBucket = 8;
+  const plotX = probability => margin.left + probability * plotWidth;
+  const plotY = accuracy => margin.top + (1 - accuracy) * plotHeight;
+  const percent = value => `${(value * 100).toFixed(1)}%`;
 
-  // stated prob -> actual accuracy under overconfidence
-  // shrink accuracy toward 0.5 as overconf grows for high-stated balls
-  function actualAcc(stated, oc) {
-    return stated - oc * (stated - 0.5) * 1.4 * stated;
+  function makeSamples(random) {
+    const normal = d3.randomNormal.source(random)(0.58, 0.24);
+    return Array.from({ length: sampleCount }, () => ({
+      stated: Math.min(0.999, Math.max(0.001, normal())),
+      draw: random()
+    }));
   }
 
-  function makeBalls(rng) {
-    const arr = [];
-    for (let i = 0; i < N; i++) {
-      // stated probabilities skew high-ish like a real classifier
-      const stated = Math.min(0.999, Math.max(0.001, d3.randomNormal.source(rng)(0.58, 0.24)()));
-      arr.push({ stated, u: rng() });
+  let samples = makeSamples(d3.randomLcg(42));
+
+  function summarize() {
+    const buckets = Array.from({ length: bucketCount }, () => ({ predictions: [], correct: 0, totalProbability: 0 }));
+    samples.forEach(sample => {
+      const accuracy = sample.stated - overconf * (sample.stated - 0.5) * 1.4 * sample.stated;
+      const correct = sample.draw < Math.max(0, Math.min(1, accuracy));
+      const bucket = buckets[Math.floor(sample.stated * bucketCount)];
+      bucket.predictions.push(correct);
+      bucket.correct += Number(correct);
+      bucket.totalProbability += sample.stated;
+    });
+    return buckets.map(bucket => ({
+      ...bucket,
+      total: bucket.predictions.length,
+      mean: bucket.predictions.length ? bucket.totalProbability / bucket.predictions.length : null,
+      accuracy: bucket.predictions.length ? bucket.correct / bucket.predictions.length : null
+    }));
+  }
+
+  function render() {
+    const buckets = summarize();
+    const selected = buckets[selectedBucket];
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.font = "12px -apple-system, sans-serif";
+    for (let tick = 0; tick <= 5; tick++) {
+      const fraction = tick / 5;
+      context.strokeStyle = "#e8e8e8";
+      context.lineWidth = 1;
+      context.beginPath();
+      context.moveTo(plotX(0), plotY(fraction));
+      context.lineTo(plotX(1), plotY(fraction));
+      context.stroke();
+      context.fillStyle = "#555";
+      context.textAlign = "right";
+      context.fillText(`${tick * 20}%`, margin.left - 10, plotY(fraction) + 4);
+      context.textAlign = "center";
+      context.fillText(`${tick * 20}%`, plotX(fraction), plotY(0) + 22);
     }
-    return arr;
-  }
+    context.fillText("모델이 말한 확률 (구간 평균)", plotX(0.5), canvas.height - 12);
+    context.save();
+    context.translate(17, margin.top + plotHeight / 2);
+    context.rotate(-Math.PI / 2);
+    context.fillText("실제 정답률", 0, 0);
+    context.restore();
 
-  let BASE = makeBalls(d3.randomLcg(42));
+    context.save();
+    context.setLineDash([5, 5]);
+    context.strokeStyle = "#999";
+    context.beginPath();
+    context.moveTo(plotX(0), plotY(0));
+    context.lineTo(plotX(1), plotY(1));
+    context.stroke();
+    context.restore();
 
-  function bucketOf(s) { return Math.min(NB - 1, Math.floor(s * NB)); }
-  function bx(b) { return M.l + (b + 0.5) / NB * PW; }
-
-  function assign() {
-    // compute correctness under current overconf, then stack positions
-    const perBucket = Array.from({ length: NB }, () => []);
-    balls = BASE.map(b => {
-      const acc = Math.max(0, Math.min(1, actualAcc(b.stated, overconf)));
-      const correct = b.u < acc;
-      return { ...b, correct };
+    context.strokeStyle = MAGENTA;
+    context.lineWidth = 2.5;
+    context.beginPath();
+    let connected = false;
+    buckets.forEach(bucket => {
+      if (!bucket.total) { connected = false; return; }
+      if (connected) context.lineTo(plotX(bucket.mean), plotY(bucket.accuracy));
+      else context.moveTo(plotX(bucket.mean), plotY(bucket.accuracy));
+      connected = true;
     });
-    balls.forEach(b => {
-      const k = bucketOf(b.stated);
-      const stack = perBucket[k].length;
-      perBucket[k].push(b);
-      const col = stack % 5, row = Math.floor(stack / 5);
-      b.tx = bx(k) - 2.2 * R * 2 + col * (R * 2 + 1);
-      b.ty = M.t + PH - R - row * (R * 2 + 1);
-    });
-  }
-
-  function curvePoints() {
-    const sums = Array.from({ length: NB }, () => ({ n: 0, c: 0 }));
-    balls.forEach(b => {
-      const k = bucketOf(b.stated);
-      sums[k].n++; if (b.correct) sums[k].c++;
-    });
-    return sums.map((s, k) => s.n >= 4
-      ? { x: bx(k), y: M.t + PH - (s.c / s.n) * PH }
-      : null).filter(Boolean);
-  }
-
-  function drawStatic(withCurve) {
-    ctx.clearRect(0, 0, W, H);
-
-    // axes
-    ctx.strokeStyle = "#111"; ctx.lineWidth = 1;
-    ctx.strokeRect(M.l, M.t, PW, PH);
-
-    // diagonal (perfect calibration)
-    ctx.save();
-    ctx.setLineDash([5, 5]); ctx.strokeStyle = "#bbb";
-    ctx.beginPath();
-    ctx.moveTo(M.l, M.t + PH); ctx.lineTo(M.l + PW, M.t);
-    ctx.stroke();
-    ctx.restore();
-
-    // labels
-    ctx.fillStyle = "#6b6b6b"; ctx.font = "11px -apple-system, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("모델이 말한 확률 →", M.l + PW / 2, H - 14);
-    ctx.save();
-    ctx.translate(16, M.t + PH / 2); ctx.rotate(-Math.PI / 2);
-    ctx.fillText("실제 정답률 →", 0, 0);
-    ctx.restore();
-    ctx.textAlign = "left";
-
-    // balls
-    balls.forEach(b => {
-      if (b.y === undefined) return;
-      ctx.beginPath();
-      ctx.arc(b.x, b.y, R, 0, Math.PI * 2);
-      if (b.correct) { ctx.fillStyle = "#111"; ctx.fill(); }
-      else { ctx.strokeStyle = "#999"; ctx.lineWidth = 1.2; ctx.stroke(); }
-    });
-
-    // calibration curve
-    if (withCurve) {
-      const pts = curvePoints();
-      if (pts.length > 1) {
-        ctx.strokeStyle = MAGENTA; ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        pts.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
-        ctx.stroke();
-        pts.forEach(p => {
-          ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-          ctx.fillStyle = MAGENTA; ctx.fill();
-        });
+    context.stroke();
+    buckets.forEach((bucket, index) => {
+      if (!bucket.total) return;
+      context.beginPath();
+      context.arc(plotX(bucket.mean), plotY(bucket.accuracy), index === selectedBucket ? 7 : 4, 0, Math.PI * 2);
+      context.fillStyle = MAGENTA;
+      context.fill();
+      if (index === selectedBucket) {
+        context.save();
+        context.setLineDash([3, 4]);
+        context.lineWidth = 1;
+        context.beginPath();
+        context.moveTo(plotX(bucket.mean), plotY(bucket.accuracy));
+        context.lineTo(plotX(bucket.mean), plotY(0));
+        context.stroke();
+        context.restore();
+        context.textAlign = bucket.mean > 0.75 ? "right" : "left";
+        context.fillText(`선택 ${percent(bucket.accuracy)}`, plotX(bucket.mean) + (bucket.mean > 0.75 ? -12 : 12), Math.max(16, plotY(bucket.accuracy) - 12));
       }
-    }
-  }
-
-  function note() {
-    const gap = overconf;
-    let msg;
-    if (gap < 0.15) msg = "잘 보정된 예시 — 곡선이 대각선에 가깝습니다.";
-    else if (gap < 0.5) msg = "약한 과신 — 높은 확률 구간부터 대각선 아래로 처지기 시작합니다.";
-    else msg = "큰 과신 — 높은 확률을 말한 집단의 실제 정답률이 낮아집니다.";
-    d3.select("#calib-note").text(msg);
-  }
-
-  function drop() {
-    if (dropping) return;
-    dropping = true;
-    BASE = makeBalls(d3.randomLcg(Math.floor(Math.random() * 1e9)));
-    assign();
-    balls.forEach((b, i) => {
-      b.x = b.tx;
-      b.y = -10 - (i % 40) * 10 - Math.floor(i / 40) * 120;
-      b.vy = 0;
     });
-    const g = 0.5;
-    function tick() {
-      let moving = 0;
-      balls.forEach(b => {
-        if (b.y >= b.ty) { b.y = b.ty; return; }
-        b.vy += g; b.y = Math.min(b.ty, b.y + b.vy);
-        if (b.y < b.ty) moving++;
-      });
-      drawStatic(moving === 0);
-      if (moving > 0) requestAnimationFrame(tick);
-      else dropping = false;
-    }
-    tick();
+
+    d3.select("#calib-dots").selectAll("span")
+      .data(selected.predictions.slice().sort((first, second) => Number(second) - Number(first)))
+      .join("span")
+      .attr("class", correct => `calib__dot${correct ? " calib__dot--correct" : ""}`);
+    const fractionText = selected.total
+      ? `전체 ${selected.total}건 중 정답 ${selected.correct}건 → ${selected.correct} ÷ ${selected.total} = `
+      : "이 구간에는 예측이 없습니다. ";
+    d3.select("#calib-fraction").text(fractionText).append("strong")
+      .text(selected.total ? `${percent(selected.accuracy)} (분홍 점의 높이)` : "정답률을 계산하지 않습니다.");
+    const comparison = selected.total
+      ? `말한 확률 평균 ${percent(selected.mean)} · 실제 정답률 ${percent(selected.accuracy)}.${selected.total < 5 ? " 표본이 적어 한 건만 달라져도 비율이 크게 바뀝니다." : ""}`
+      : "다른 확률 구간을 선택하거나 새 표본을 만들 수 있습니다.";
+    d3.select("#calib-comparison").text(comparison);
+    canvas.setAttribute("aria-label", `확률 보정 그래프. 선택 구간 ${selectedBucket * 10}~${(selectedBucket + 1) * 10}%. ${fractionText} ${selected.total ? percent(selected.accuracy) : ""}. ${comparison}`);
+    d3.select("#calib-note").text(overconf === 0
+      ? "보정된 조건에서 뽑은 표본입니다. 유한한 표본이라 점들이 기준선에서 벗어날 수 있습니다."
+      : "과신 조건: 높은 확률 구간에서 실제로 맞히는 비율이 낮아집니다. 예측 개수와 말한 확률은 유지됩니다.");
   }
 
-  d3.select("#calib-drop").on("click", drop);
-
+  d3.select("#calib-bucket").selectAll("option")
+    .data(d3.range(bucketCount)).join("option")
+    .attr("value", index => index)
+    .text(index => `${index * 10}% 이상 ${(index + 1) * 10}% ${index === bucketCount - 1 ? "이하" : "미만"}`);
+  d3.select("#calib-bucket").property("value", selectedBucket).on("change", function () {
+    selectedBucket = Number(this.value);
+    render();
+  });
+  d3.select("#calib-drop").on("click", () => {
+    samples = makeSamples(d3.randomLcg(Math.floor(Math.random() * 1e9)));
+    render();
+  });
   d3.select("#overconf").on("input", function () {
     overconf = +this.value;
     d3.select("#overconf-val").text(fmt(overconf));
-    if (!dropping && balls.length) {
-      assign();
-      balls.forEach(b => { b.x = b.tx; b.y = b.ty; });
-      drawStatic(true);
-    }
-    note();
+    render();
   });
-
-  // initial frame: empty axes
-  drawStatic(false);
-  note();
+  render();
 })();
 
 // ====================================================================
@@ -619,7 +607,7 @@ const confView = (() => {
 
   const GATE_X = W * 0.42;
   const LANES = [
-    { key: "auto",   label: "자동 처리",        y: H * 0.22, color: "#111" },
+    { key: "auto",   label: "자동 배정",        y: H * 0.22, color: "#111" },
     { key: "verify", label: "재확인 후 진행",    y: H * 0.5,  color: AMBER },
     { key: "human",  label: "사람 검토",        y: H * 0.78, color: MAGENTA }
   ];
@@ -765,121 +753,200 @@ const confView = (() => {
     revealObserver.observe(target);
   });
 
-  const calibCanvas = document.getElementById("calib-canvas");
-  const calibObserver = new IntersectionObserver(entries => {
-    entries.forEach(entry => {
-      if (!entry.isIntersecting || calibCanvas.__poured) return;
-      calibCanvas.__poured = true;
-      setTimeout(() => d3.select("#calib-drop").node().click(), 250);
-      calibObserver.unobserve(calibCanvas);
-    });
-  }, { threshold: 0.15 });
-  calibObserver.observe(calibCanvas);
 })();
 
 // ====================================================================
-// State — accumulating context timeline; same Noul re-asked each step
+// State — accumulating source-linked context from timeline events
 // ====================================================================
 
 (() => {
   const EVENTS = [
-    { who: "고객", sys: false, text: "주문한 상품이 어제 도착했는데요.", p: 0.08 },
-    { who: "고객", sys: false, text: "상자를 열어보니 액정에 금이 가 있었어요.", p: 0.22 },
-    { who: "시스템", sys: true,  text: "order#4821 — 배송 완료 이벤트 기록됨", p: 0.24 },
-    { who: "고객", sys: false, text: "교환보다는 그냥 돈으로 돌려받고 싶습니다.", p: 0.87 },
-    { who: "상담원", sys: false, text: "불편을 드려 죄송합니다. 확인해 드릴게요.", p: 0.90 },
+    { who: "고객", sys: false, text: "주문한 상품이 어제 도착했는데요.", fields: { arrival: "어제 도착 (고객 진술)" } },
+    { who: "고객", sys: false, text: "상자를 열어보니 액정에 금이 가 있었어요.", fields: { condition: "액정에 금이 있음 (고객 진술)" } },
+    { who: "시스템", sys: true, text: "order#4821 — 배송 완료 이벤트 기록됨", fields: { order: "#4821", delivery: "배송 완료 (시스템 기록)" } },
+    { who: "고객", sys: false, text: "교환보다는 그냥 돈으로 돌려받고 싶습니다.", fields: { request: "교환보다는 그냥 돈으로 돌려받고 싶습니다." } },
+    { who: "상담원", sys: false, text: "불편을 드려 죄송합니다. 확인해 드릴게요.", fields: { reply: "불편을 드려 죄송합니다. 확인해 드릴게요." } },
   ];
-
+  const fields = [
+    { key: "order", group: "주문·배송", label: "주문번호", path: "order.id" },
+    { key: "arrival", group: "주문·배송", label: "도착 시점", path: "order.arrived_at" },
+    { key: "delivery", group: "주문·배송", label: "배송 기록", path: "order.delivery_status" },
+    { key: "condition", group: "상품 상태", label: "고객이 보고한 상태", path: "product.reported_condition" },
+    { key: "request", group: "대화", label: "고객의 요청 원문", path: "conversation.customer_request" },
+    { key: "reply", group: "대화", label: "상담원 응답 원문", path: "conversation.agent_reply" }
+  ];
   const tl = d3.select("#state-timeline");
   const readout = d3.select("#state-readout");
   const btn = d3.select("#state-next");
   let idx = 0;
+  let contextState = {};
+  const rows = new Map();
+  const summary = d3.select("#state-summary");
+  [...new Set(fields.map(field => field.group))].forEach(group => {
+    const section = summary.append("section").attr("class", "state-summary__group");
+    section.append("h3").text(group);
+    const list = section.append("dl");
+    fields.filter(field => field.group === group).forEach(field => {
+      const row = list.append("div").attr("class", "state-fact").attr("data-field", field.key);
+      row.append("dt").html(`${field.label} <code>${field.path}</code>`);
+      row.append("dd").attr("class", "state-fact__value");
+      row.append("dd").attr("class", "state-fact__source");
+      rows.set(field.key, row);
+    });
+  });
 
-  // small horizontal probability bar as gauge
-  const W = 300, H = 70;
-  const svg = d3.select("#state-gauge").append("svg").attr("width", W).attr("height", H);
-  svg.append("text").attr("x", 0).attr("y", 16).attr("font-size", 12).attr("fill", "#8a8378")
-     .text("Noul: 환불을 요청하고 있는가?");
-  svg.append("rect").attr("x", 0).attr("y", 30).attr("width", W).attr("height", 16).attr("fill", "#eee7db");
-  const fill = svg.append("rect").attr("x", 0).attr("y", 30).attr("width", 0).attr("height", 16).attr("fill", "#f0157a");
+  function stateAsObject() {
+    const result = {};
+    fields.forEach(field => {
+      const fact = contextState[field.key];
+      if (!fact) return;
+      const [group, key] = field.path.split(".");
+      result[group] ??= {};
+      result[group][key] = fact.value;
+    });
+    return result;
+  }
+
+  function renderStateSummary() {
+    fields.forEach(field => {
+      const fact = contextState[field.key];
+      const row = rows.get(field.key);
+      row.classed("is-new", !!fact && fact.event === idx)
+        .classed("is-empty", !fact)
+        .attr("aria-hidden", fact ? null : "true");
+      row.select(".state-fact__value").text(fact ? fact.value : "");
+      row.select(".state-fact__source").text(fact ? `← 이벤트 ${fact.event} · ${fact.who}` : "");
+    });
+    d3.select("#state-json").text(JSON.stringify(stateAsObject(), null, 2));
+  }
+
+  function setStateView(view) {
+    const showJson = view === "json";
+    d3.select("#state-summary").attr("hidden", showJson ? true : null);
+    d3.select("#state-json").attr("hidden", showJson ? null : true);
+    d3.select("#state-view-pretty").classed("is-active", !showJson).attr("aria-pressed", String(!showJson));
+    d3.select("#state-view-json").classed("is-active", showJson).attr("aria-pressed", String(showJson));
+  }
 
   function step() {
     if (idx >= EVENTS.length) return;
     const ev = EVENTS[idx++];
+    Object.entries(ev.fields).forEach(([key, value]) => {
+      contextState[key] = { value, event: idx, who: ev.who };
+    });
+    tl.selectAll(".sevent").classed("is-current", false);
     tl.append("div").attr("class", "sevent" + (ev.sys ? " sevent--sys" : ""))
-      .html(`<p class="sevent__who">${ev.who}</p><p class="sevent__text">${ev.text}</p>`)
+      .classed("is-current", true)
+      .html(`<p class="sevent__who">${idx} · ${ev.who}</p><p class="sevent__text">${ev.text}</p>`)
       .node().offsetHeight; // reflow
     tl.selectAll(".sevent").classed("is-on", true);
-    fill.transition().duration(650).ease(d3.easeCubicOut).attr("width", W * ev.p);
-    readout.html(`이벤트 ${idx}개 누적 → P(환불 요청) = <span class="ro-num">${ev.p.toFixed(2)}</span>`);
-    if (idx >= EVENTS.length) btn.attr("disabled", true).text("state 완성 — 분포가 이야기를 따라왔다");
+    renderStateSummary();
+    readout.text(`이벤트 ${idx}/${EVENTS.length} · 정보 ${Object.keys(contextState).length}개 누적 · 아직 모델 판단 전`);
+    if (idx >= EVENTS.length) btn.attr("disabled", true).text("자료 누적 완료");
   }
 
   btn.on("click", step);
+  d3.select("#state-view-pretty").on("click", () => setStateView("pretty"));
+  d3.select("#state-view-json").on("click", () => setStateView("json"));
+  d3.select("#state-reset").on("click", () => {
+    idx = 0;
+    contextState = {};
+    tl.selectAll(".sevent").remove();
+    btn.attr("disabled", null).text("이벤트 추가 →");
+    step();
+  });
   step(); // seed first event
 })();
 
 // ====================================================================
-// Advanced: Structure — assemble a typed Ticket object from questions
+// Advanced: Structure — named questions and answers share one State
 // ====================================================================
 
 (() => {
+  const STATE_BY_SCENARIO = {
+    "event-1": { order: { arrived_at: "어제 도착 (고객 진술)" } },
+    "event-2": {
+      order: { arrived_at: "어제 도착 (고객 진술)" },
+      product: { reported_condition: "액정에 금이 있음 (고객 진술)" }
+    },
+    "event-3": {
+      order: { id: "#4821", arrived_at: "어제 도착 (고객 진술)", delivery_status: "배송 완료 (시스템 기록)" },
+      product: { reported_condition: "액정에 금이 있음 (고객 진술)" }
+    },
+    "event-4": {
+      order: { id: "#4821", arrived_at: "어제 도착 (고객 진술)", delivery_status: "배송 완료 (시스템 기록)" },
+      product: { reported_condition: "액정에 금이 있음 (고객 진술)" },
+      conversation: { customer_request: "교환보다는 그냥 돈으로 돌려받고 싶습니다." }
+    },
+    "event-5": {
+      order: { id: "#4821", arrived_at: "어제 도착 (고객 진술)", delivery_status: "배송 완료 (시스템 기록)" },
+      product: { reported_condition: "액정에 금이 있음 (고객 진술)" },
+      conversation: {
+        customer_request: "교환보다는 그냥 돈으로 돌려받고 싶습니다.",
+        agent_reply: "불편을 드려 죄송합니다. 확인해 드릴게요."
+      }
+    }
+  };
   const FIELDS = [
-    { name: "team",           type: "Choice", val: '"billing"',  conf: 0.90 },
-    { name: "anger",          type: "Score",  val: "1.70",       conf: 0.74 },
-    { name: "wants_refund",   type: "Noul",   val: "0.87",       conf: null },
-    { name: "auto_resolvable",type: "Noul",   val: "0.19",       conf: null },
+    { name: "team", question: "어느 팀이 먼저 처리해야 할까?", type: "Choice", path: 'answers["team"].choice' },
+    { name: "dissatisfaction", question: "고객 메시지에 드러난 불만 강도는?", type: "Score", path: 'answers["dissatisfaction"].score' },
+    { name: "wants_refund", question: "고객이 환불을 명시적으로 요청했는가?", type: "Noul", path: 'answers["wants_refund"].noul' }
   ];
 
   const wrap = d3.select("#struct-fields");
   FIELDS.forEach(f => {
     wrap.append("div").attr("class", "sfield").attr("data-name", f.name)
-      .html(`<span class="sfield__val"></span><p class="sfield__name">${f.name}</p><span class="sfield__type">${f.type}</span>`);
+      .html(`<div class="sfield__input"><span class="sfield__question">${f.question}</span><span class="sfield__name">${f.name}</span><span class="sfield__type">${f.type}</span></div><span class="sfield__arrow">→</span><div class="sfield__output"><code>${f.path}</code><strong class="sfield__val"></strong></div>`);
   });
 
   const jsonEl = d3.select("#struct-json");
-  jsonEl.node().insertAdjacentHTML(
-    "beforebegin",
-    '<p class="struct__json-label">Illustrative response.answers excerpt — probabilities omitted; Noul has no confidence.</p>'
-  );
-  jsonEl.text("{}");
-
-  let timers = [];
-  function run() {
-    timers.forEach(clearTimeout);
-    timers = [];
-    wrap.selectAll(".sfield").classed("is-filled", false).select(".sfield__val").text("");
-    jsonEl.text("{}");
-    FIELDS.forEach((f, i) => {
-      const timer = setTimeout(() => {
-        const el = wrap.select(`[data-name="${f.name}"]`);
-        el.classed("is-filled", true);
-        el.select(".sfield__val").text(f.conf === null ? `${f.val} · noul` : `${f.val} · conf ${f.conf}`);
-        const done = FIELDS.slice(0, i + 1);
-        const answers = Object.fromEntries(done.map(d => {
-          if (d.type === "Choice") {
-            return [d.name, { type: d.type.toLowerCase(), choice: JSON.parse(d.val), confidence: d.conf }];
-          }
-          if (d.type === "Score") {
-            return [d.name, { type: d.type.toLowerCase(), score: Number(d.val), confidence: d.conf }];
-          }
-          return [d.name, { type: d.type.toLowerCase(), noul: Number(d.val) }];
-        }));
-        jsonEl.attr("data-label", "illustrative response.answers; Noul has no confidence")
-          .attr("title", "Illustrative response.answers object — Noul has no confidence")
-          .text(JSON.stringify(answers, null, 2));
-      }, 600 * (i + 1));
-      timers.push(timer);
+  function render(sc) {
+    const topTeam = CHOICE_OPTIONS.reduce((a, b) => sc.choice[a] >= sc.choice[b] ? a : b);
+    const dissatisfaction = sc.score.probs.reduce((sum, probability, level) => sum + level * probability, 0);
+    const answers = {
+      team: { type: "choice", choice: topTeam },
+      dissatisfaction: { type: "score", score: Number(dissatisfaction.toFixed(2)) },
+      wants_refund: { type: "noul", noul: sc.noul }
+    };
+    const values = { team: topTeam, dissatisfaction: dissatisfaction.toFixed(2), wants_refund: sc.noul.toFixed(2) };
+    d3.select("#struct-checkpoint").text(`${sc.label} · Questions와 같은 State`);
+    wrap.selectAll(".sfield").each(function () {
+      const field = d3.select(this);
+      field.classed("is-filled", true).select(".sfield__val").text(values[field.attr("data-name")]);
     });
+    jsonEl.text(JSON.stringify(answers, null, 2));
+    d3.select("#struct-req").text(requestFor(sc, STATE_BY_SCENARIO[sc.id]));
   }
 
-  d3.select("#struct-run").on("click", run);
+  function requestFor(sc, state) {
+    return `# ${sc.label}: 같은 State에 이름 붙인 세 질문
+from typesafe_sdk import Choice, Score, Noul, TypeSafeClient
 
-  // auto-run on first viewport entry; observe the compact assembly, not the whole section.
-  const io2 = new IntersectionObserver(es => es.forEach(e => {
-    if (e.isIntersecting) { run(); io2.unobserve(e.target); }
-  }), { threshold: 0.35 });
-  io2.observe(document.querySelector("#act-structure .struct"));
+state = ${JSON.stringify(state, null, 2)}
+questions = {
+    "team": Choice(
+        criteria={"returns": "환불·교환", "product_support": "제품 결함", "delivery_support": "배송 문제"},
+        instructions="어느 팀이 먼저 처리해야 하는가?",
+    ),
+    "dissatisfaction": Score(
+        criteria=["차분", "불편", "격앙"],
+        instructions="고객 메시지에 드러난 불만 강도는?",
+    ),
+    "wants_refund": Noul(
+        instructions="고객이 환불을 명시적으로 요청했는가?",
+    ),
+}
+
+with TypeSafeClient() as client:
+    response = client.system_one(state=state, questions=questions)
+    answers = response.answers
+    team = answers["team"].choice
+    dissatisfaction = answers["dissatisfaction"].score
+    refund_probability = answers["wants_refund"].noul`;
+  }
+
+  window.__jevRenderStructure = render;
+  render(appState.scenario);
 })();
 
 // ====================================================================
@@ -900,8 +967,8 @@ const confView = (() => {
     // Choice snippet
     d3.select("#code-choice").html(
 `team_question = Choice(
-    criteria={"billing": "결제 관련", "technical": "기술 문제", "account": "계정 관련"},
-    instructions="어느 팀이 처리해야 하는가?",
+  criteria={"returns": "환불·교환", "product_support": "제품 결함", "delivery_support": "배송 문제"},
+  instructions="어느 팀이 먼저 처리해야 하는가?",
 )
 # result: Choice answer and confidence are separate SDK fields
 answers["team"].choice  # demo result: "${topTeam}"; 선택 확률 ${topP.toFixed(2)}
@@ -915,22 +982,22 @@ answers["team"].choice  # demo result: "${topTeam}"; 선택 확률 ${topP.toFixe
       ` = <b>${ev.toFixed(2)}</b>`);
 
     d3.select("#code-score").html(
-`anger_question = Score(
-    criteria=["차분", "짜증", "분노"],
-    instructions="고객은 얼마나 화가 났나?",
+`dissatisfaction_question = Score(
+  criteria=["차분", "불편", "격앙"],
+  instructions="고객 메시지에 드러난 불만 강도는?",
 )
 # result: expected value of the Score probability distribution
-answers["anger"].score  # demo result: ${ev.toFixed(2)}`);
+answers["dissatisfaction"].score  # demo result: ${ev.toFixed(2)}`);
 
     // Noul snippet
     d3.select("#code-noul").html(
 `refund_question = Noul(
-    instructions="환불을 요청하고 있는가?",
+  instructions="고객이 환불을 명시적으로 요청했는가?",
 )
 # result: Noul is P(yes), with no separate confidence field
-answers["refund_requested"].noul  # demo result: ${sc.noul.toFixed(2)}
+answers["wants_refund"].noul  # demo result: ${sc.noul.toFixed(2)}
 # hard decisions are an application-level threshold
-wants_refund = answers["refund_requested"].noul >= 0.7  # 결과: ${sc.noul >= 0.7 ? "True" : "False"}`);
+refund_requested = answers["wants_refund"].noul >= 0.7  # 결과: ${sc.noul >= 0.7 ? "True" : "False"}`);
   }
 
   // update() calls this once for every scenario, keeping all primitive outputs in one path.
@@ -948,34 +1015,6 @@ wants_refund = answers["refund_requested"].noul >= 0.7  # 결과: ${sc.noul >= 0
   const C = t => `<span class="c-cm">${t}</span>`;
   const O = t => `<span class="c-out">${t}</span>`;
 
-  d3.select("#struct-req").text(
-`# response.answers를 앱 객체로 조합하는 예시
-from typesafe_sdk import Choice, Score, Noul, TypeSafeClient
-
-state = {"message": "결제 문제를 확인해 주세요"}
-ticket = state
-questions = {
-    "team": Choice(
-        criteria={"billing": "결제 관련", "technical": "기술 문제", "account": "계정 관련"},
-        instructions="어느 팀이 처리해야 하는가?",
-    ),
-    "anger": Score(
-        criteria=["차분", "짜증", "분노"],
-        instructions="고객은 얼마나 화가 났나?",
-    ),
-    "wants_refund": Noul(
-        instructions="환불을 요청하고 있는가?",
-    ),
-    "auto_resolvable": Noul(
-        instructions="자동으로 해결 가능한가?",
-    ),
-}
-
-with TypeSafeClient() as client:
-    response = client.system_one(state=ticket, questions=questions)
-    answers = response.answers
-# 앱이 answers를 type / choice / score / noul 구조로 조립한다`);
-
   function renderRoutingCode() {
   const low = +document.getElementById("th-low").value;
   const high = +document.getElementById("th-high").value;
@@ -983,19 +1022,11 @@ with TypeSafeClient() as client:
 `def route(ticket, answers):
     topic = answers["team"]
 
-    if topic.confidence < ${low.toFixed(2)}:  # 하한: 사람 검토
-        return route_to_human(ticket)  # app-defined handler
-
-    if topic.confidence >= ${high.toFixed(2)}:  # 상한: 자동 처리
-        return auto_resolve(ticket, team=topic.choice)  # app-defined handler
-
-    # 그 사이는 재확인 후 진행
-    return route_with_review(
-        ticket,
-        team=topic.choice,
-        wants_refund=answers["wants_refund"].noul >= 0.7,
-        priority="high" if answers["anger"].score >= 1.5 else "normal",
-    )  # app-defined handler`);
+    if topic.confidence < ${low.toFixed(2)}:
+        return route_to_human(ticket)
+    if topic.confidence >= ${high.toFixed(2)}:
+        return assign_team(ticket, team=topic.choice)
+    return review_team_assignment(ticket, team=topic.choice)`);
   }
   renderRoutingCode();
   window.__jevRenderRoutingCode = renderRoutingCode;

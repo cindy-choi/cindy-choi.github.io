@@ -73,7 +73,6 @@ Seeing Theory의 핵심 구현 방식이다. 다음 요소에 사용한다.
 - 분포 곡선
 - 산점도와 회귀선
 - 토큰별 확률
-- 모델 라우팅 그래프
 - agent 상태 노드
 - 축·라벨·툴팁
 
@@ -191,21 +190,9 @@ Seeing Theory의 다음 패턴을 그대로 적용할 수 있다.
 - 한 번 실행과 여러 번 실행을 비교
 - 값이 바뀌면 애니메이션으로 변화 과정을 보여줌
 
-### 6.2 Model Routing Playground
+### 6.2 Agent State Machine
 
 두 번째 후보다.
-
-```text
-요청 특성 입력
-  → 난이도·비용 한도·지연시간 계산
-  → router가 모델 선택
-  → 경로와 대안 모델 표시
-  → 조건 변경 시 routing 결과 transition
-```
-
-### 6.3 Agent State Machine
-
-세 번째 후보다.
 
 ```text
 요청
@@ -226,7 +213,6 @@ Seeing Theory의 다음 패턴을 그대로 적용할 수 있다.
 ```text
 /blog/<post>
 /experiments/token-cost/
-/experiments/model-routing/
 /experiments/agent-state-machine/
 /docs/architecture/
 ```

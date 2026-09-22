@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/site/palette.css">
 <link rel="stylesheet" href="/assets/site/style.css">
-<link rel="stylesheet" href="./jev.css">
+<link rel="stylesheet" href="./jev.css?v=20260922-structure">
 </head>
 <body>
 
@@ -34,8 +34,10 @@
       <p class="masthead__eyebrow">System One</p>
       <h2 class="act__title">같은 입력, 다른 계약</h2>
       <p class="masthead__lede">
-        같은 문의에 서로 다른 출력 계약을 적용한 예시입니다. 왼쪽은 생성 문장, 오른쪽은
-        미리 정한 yes/no 질문의 확률입니다. 실제 Jev API 측정값이 아니라 계약 차이를 보여주는 데모입니다.
+        고객 문의는 “항공편이 취소됐어요. 환불받을 수 있나요?”입니다.
+        왼쪽에는 답장 작성을, 오른쪽에는 “이 고객이 환불을 요청하는가?”라는 판단을 맡깁니다.
+        여기서 계약은 반환할 답의 형식입니다. 문장과 확률의 차이를 비교하는 예시이지,
+        LLM은 구조화된 답을 낼 수 없거나 Jev가 항상 같은 값을 준다는 뜻은 아닙니다.
       </p>
     </header>
 
@@ -45,7 +47,7 @@
         <pre class="duel__text" id="llm-text"></pre>
       </div>
       <div class="duel__panel">
-        <p class="duel__label">Jev — 정해 둔 답 공간</p>
+        <p class="duel__label">Jev — 환불을 요청하는가? P(yes)</p>
         <div id="duel-jev"></div>
       </div>
     </div>
@@ -68,28 +70,43 @@
       <p class="masthead__lede">
         <strong>State</strong>는 판단할 자료입니다. 문자열·객체·배열을 직접 전달할 수 있고,
         같은 state의 각 질문은 서로 독립적으로 평가됩니다.
-        아래 타임라인에 이벤트를 하나씩 추가해 보세요. state가 자랄 때마다
-        같은 질문(<code>환불을 요청하고 있는가?</code>)의 분포가 다시 계산됩니다.
+        왼쪽은 시간순으로 들어온 이벤트, 오른쪽은 그 자료를 주문·상품 상태·대화로 정리한 state입니다.
+        아직 알려지지 않은 정보는 비워 두고, 들어온 정보만 누적합니다.
       </p>
       <p class="masthead__lede">
-        <strong>이 데모에서는</strong> 앱이 새 state를 만들어 타임라인을 확장하고 같은 질문을
-        다시 평가합니다. 자동 누적 메모리를 API가 관리한다는 뜻은 아닙니다.
+        <strong>이 데모에서는</strong> 이벤트마다 준비된 필드를 앱이 state에 추가합니다.
+        Jev가 정보를 추출하거나 자동으로 기억하는 과정이 아니며, 아직 질문을 평가하지 않습니다.
       </p>
     </header>
 
     <div class="stateline">
       <div class="stateline__timeline" id="state-timeline"></div>
       <div class="stateline__right">
-        <div class="stateline__gauge" id="state-gauge"></div>
-        <p class="stateline__readout" id="state-readout"></p>
-        <button class="chip" type="button" id="state-next">이벤트 추가 →</button>
+        <div class="state-summary__head">
+          <p class="state-summary__title">판단에 전달할 자료 <span>State</span></p>
+          <div class="state-view-toggle" role="group" aria-label="State 보기 방식">
+            <button type="button" id="state-view-pretty" class="is-active" aria-pressed="true">정리된 보기</button>
+            <button type="button" id="state-view-json" aria-pressed="false">JSON</button>
+          </div>
+        </div>
+        <div class="state-summary__views">
+          <div class="state-summary" id="state-summary"></div>
+          <pre class="state-json" id="state-json" hidden aria-label="현재 누적된 State JSON"></pre>
+        </div>
+        <div class="state-summary__footer">
+          <p class="stateline__readout" id="state-readout" role="status"></p>
+          <div class="state-summary__controls">
+            <button class="chip" type="button" id="state-next">이벤트 추가 →</button>
+            <button class="chip" type="button" id="state-reset">처음부터</button>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
   <p class="bridge reveal">
     state가 준비되었으니 이제 질문을 던질 차례입니다.
-    Jev에서 질문은 자유 텍스트가 아니라 <strong>세 가지 타입</strong> 중 하나로 선언합니다.
+    질문은 문장으로 쓰되, <strong>답의 형태</strong>는 세 가지 타입 중 하나로 정합니다.
   </p>
 
   <!-- Act 2: Primitives (Questions) -->
@@ -98,15 +115,19 @@
       <p class="masthead__eyebrow">Primitives (Questions)</p>
       <h2 class="act__title">Choice · Score · Noul — 세 가지 질문 타입</h2>
       <p class="masthead__lede">
-        답 공간은 내가 정의합니다 — <strong>Choice</strong>는 유한한 선택지 위의 분포,
-        <strong>Score</strong>는 순서 있는 눈금 위의 분포(기대값을 낼 수 있습니다),
-        <strong>Noul</strong>은 예/아니오의 단일 확률(임계값과 가장 직결됩니다).
-        문의를 바꿔 보세요 — 하나의 state에 세 질문이 병렬로 답합니다. 아래 값은 사전 계산된 예시입니다.
+        분포란 가능한 답마다 확률을 나눈 것입니다. <strong>Choice</strong>는 “어느 것인가”,
+        <strong>Score</strong>는 “어느 정도인가”, <strong>Noul</strong>은 “그런가”를 묻습니다.
+        위 타임라인의 체크포인트마다 같은 세 질문을 독립적으로 평가한 예시이며, 값은 사전 계산되어 있습니다.
+      </p>
+      <p class="masthead__lede">
+        코드의 <code>instructions</code>는 질문 문장, <code>criteria</code>는 선택지나 눈금입니다.
+        <code>answers</code>는 호출 후 받은 답 모음입니다. 아래 코드는 질문 선언과 결과 읽기를
+        발췌한 것이며, 둘을 잇는 호출은 다음 섹션에 있습니다.
       </p>
     </header>
 
     <div class="state-box">
-      <p class="state-box__label">state</p>
+      <p class="state-box__label">위에서 누적한 state · 체크포인트 선택</p>
       <blockquote class="state-box__text" id="state-text"></blockquote>
       <div class="state-box__chips" id="chips"></div>
     </div>
@@ -115,16 +136,22 @@
 
       <article class="card">
         <p class="card__type">Choice</p>
-        <h2 class="card__q">어느 팀이 처리해야 할까?</h2>
+        <h2 class="card__q">어느 팀이 먼저 처리해야 할까?</h2>
         <div class="card__viz" id="viz-choice"></div>
         <p class="card__answer" id="ans-choice"></p>
+        <p class="card__note"><code>product.reported_condition</code>과 <code>conversation.customer_request</code>를 참고합니다.
+          가장 확률이 높은 팀을 선택합니다. 선택 확률은 그 팀에 준 값이고,
+          confidence는 전체 분포를 요약한 별도 값입니다.</p>
         <pre class="card__code" id="code-choice"></pre>
       </article>
 
       <article class="card">
         <p class="card__type">Score</p>
-        <h2 class="card__q">고객은 얼마나 화가 났나?</h2>
+        <h2 class="card__q">고객 메시지에 드러난 불만 강도는?</h2>
         <div class="card__viz" id="viz-score"></div>
+        <p class="card__note"><code>conversation.customer_request</code>의 표현을 봅니다.
+          상황이 심각해도 말투는 차분할 수 있습니다. 0은 차분, 1은 불편, 2는 격앙입니다. 각 눈금에 확률을 곱해 더한
+          평균을 기대값이라고 합니다. 예를 들어 0.60은 60%가 아니라 0~2 눈금 위의 위치입니다.</p>
         <p class="score-calc" id="score-calc"></p>
         <p class="card__answer" id="ans-score"></p>
         <pre class="card__code" id="code-score"></pre>
@@ -132,12 +159,12 @@
 
       <article class="card">
         <p class="card__type">Noul</p>
-        <h2 class="card__q">환불을 요청하고 있는가?</h2>
+        <h2 class="card__q">고객이 환불을 명시적으로 요청했는가?</h2>
         <div class="card__viz" id="viz-noul"></div>
         <p class="card__answer" id="ans-noul"></p>
         <p class="card__note">
-          Noul은 boolean이 아닙니다 — 답이 아니라 <strong>P(yes)라는 확률 하나</strong>를 돌려줍니다.
-          그래서 별도의 confidence 필드가 없습니다(값 자체가 확신의 표현).
+          <code>conversation.customer_request</code>를 참고합니다. Noul은 boolean이 아닙니다 — 답이 아니라 <strong>P(yes)라는 확률 하나</strong>를 돌려줍니다.
+          <strong>P(yes)</strong>는 “그렇다”의 확률이며, 별도의 confidence 필드는 없습니다.
           0.5는 "중간 정도"가 아니라 yes/no 어느 쪽도 비슷한 확률이라는 뜻입니다.
         </p>
         <pre class="card__code" id="code-noul"></pre>
@@ -147,7 +174,40 @@
   </section>
 
   <p class="bridge reveal">
-    "모호한 문의"에서는 분포가 퍼집니다. 이 모양을 요약한 값이 confidence입니다.
+    세 질문을 따로 선언했습니다. 이제 이름을 붙여 한 번에 묻고, 답도 같은 이름으로 꺼내 보겠습니다.
+  </p>
+
+  <section class="act reveal" id="act-structure">
+    <header class="act__head">
+      <p class="masthead__eyebrow">Structure</p>
+      <h2 class="act__title">세 질문의 답을 이름으로 꺼낸다</h2>
+      <p class="masthead__lede">
+        <strong>Structure</strong>는 여기서 질문을 묶는 패턴을 가리키며, 네 번째 SDK 타입은 아닙니다.
+        <code>questions</code>에 “team”, “dissatisfaction”처럼 이름을 붙이면,
+        <code>response.answers</code>에서 같은 이름으로 각 답을 읽습니다.
+        위 Questions에서 선택한 체크포인트의 같은 State로 세 질문을 함께 보낸 교육용 응답입니다.
+      </p>
+    </header>
+
+    <p class="struct__checkpoint" id="struct-checkpoint" role="status"></p>
+    <div class="struct" aria-label="질문 이름과 답 이름의 대응">
+      <div class="struct__mapping" id="struct-fields"></div>
+    </div>
+    <p class="struct__note">이 요약에서는 답의 <code>type</code>과 값만 보여줍니다.
+      <code>confidence</code>와 전체 분포는 답을 꺼내는 구조와 별개이며, 다음 Confidence에서 살펴봅니다.</p>
+    <details class="struct__details">
+      <summary>response.answers JSON 발췌</summary>
+      <pre class="struct__json" id="struct-json"></pre>
+    </details>
+    <details class="struct__details">
+      <summary>현재 State로 호출하는 전체 Python 코드</summary>
+      <pre class="struct__req" id="struct-req"></pre>
+    </details>
+  </section>
+
+  <p class="bridge reveal">
+    이제 <code>answers["team"].choice</code>로 선택된 팀을 읽을 수 있습니다. 하지만 선택된 팀만으로 바로 배정해도 될까요?
+    다음은 그 답과 함께 돌아오는 <code>answers["team"].confidence</code>를 살펴봅니다.
   </p>
 
   <!-- Act 4: confidence is the shape of the distribution -->
@@ -159,7 +219,8 @@
         <code>confidence</code>는 별도의 마법이 아니라 확률 분포의 요약값입니다.
         아래 막대를 <strong>직접 드래그</strong>해서 분포를 만들어 보세요 — 합은 항상 1로 유지됩니다.
         한 옵션에 몰수록 게이지가 오르고, 고르게 펼수록 내려갑니다.
-        여기의 정규화 엔트로피는 교육용 지표이며 공식 SDK 수식이라고 주장하지 않습니다.
+        여기서는 분포가 얼마나 한쪽에 몰렸는지 교육용 집중도 지표(정규화 엔트로피의 보수)로 보여줍니다.
+        공식 SDK의 confidence 수식이 아니며, 이 지표가 0.9라고 해서 정답률이 90%라는 뜻도 아닙니다.
       </p>
     </header>
 
@@ -173,10 +234,8 @@
   </section>
 
   <p class="bridge reveal">
-    하지만 이 숫자들은 <strong>믿을 수 있을 때만</strong> 의미가 있습니다.
-    확률을 실제 빈도와 맞추는 것이 calibration입니다. 이는 단일 답의 정답을 보장하는
-    속성이 아니라 여러 예측 집단에서 평가되는 성질입니다. Jev가 지향하는
-    <strong>RLCD</strong>(Reinforcement learning for calibrated decisions)는 보정된 의사결정을 학습합니다.
+    분포가 한쪽에 몰려도 틀릴 수 있습니다. 이제 집중도가 아니라,
+    <strong>모델이 답에 부여한 확률</strong>을 실제 결과와 비교해 보겠습니다.
   </p>
 
   <!-- Act 3: calibration -->
@@ -185,70 +244,61 @@
       <p class="masthead__eyebrow">Calibration</p>
       <h2 class="act__title">0.9라고 말하면, 정말 90%나 맞을까</h2>
       <p class="masthead__lede">
-        예측 200개가 쏟아집니다 — 각 공은 하나의 예측이고, 모델이 말한 확률 구간별로 쌓입니다.
-        칠해진 공이 정답. 버킷의 정답 비율이 곡선의 점이 됩니다.
-        슬라이더로 모델을 <em>과신</em>하게 만들면 곡선이 대각선에서 떨어져 나갑니다.
-        이 곡선을 대각선에 가깝게 만드는 것이 보정된 의사결정을 위한 학습 신호입니다.
+        정답일 확률을 0.9라고 예측한 사례를 많이 모았을 때, 실제로 약 90%가 맞는 성질을
+        <strong>calibration(보정)</strong>이라고 합니다. 개별 답의 정답 보장이 아니라 집단의 성질입니다.
+        예측 200개를 모델이 말한 확률이 비슷한 구간끼리 묶었습니다.
+        분홍 점 하나는 한 구간의 실제 정답률입니다. 아래 동그라미는 선택된 점에 속한 예측들입니다.
+        검은 동그라미 수를 전체 동그라미 수로 나눈 값이 바로 그 점의 높이가 됩니다.
+        분홍 점이 회색 대각선 아래에 있으면, 말한 확률보다 실제로 덜 맞힌 것입니다.
+        유한한 표본에서는 보정된 모델도 대각선과 정확히 일치하지 않을 수 있습니다.
+      </p>
+      <p class="masthead__lede">
+        Jev의 <strong>RLCD</strong>(Reinforcement learning for calibrated decisions)는
+        보정된 의사결정을 목표로 하는 학습 방식입니다. 이 그림은 그 개념을 보여주는 합성 예시입니다.
       </p>
     </header>
 
     <div class="calib">
-      <canvas id="calib-canvas" width="640" height="420"></canvas>
+      <div class="calib__chart">
+        <canvas id="calib-canvas" width="640" height="360" role="img" aria-label="모델이 말한 확률과 실제 정답률 비교. 선택 구간의 수치는 아래에 표시됩니다."></canvas>
+        <div class="calib__sample">
+          <label for="calib-bucket">모델이 말한 확률 구간</label>
+          <select id="calib-bucket"></select>
+          <p class="calib__legend"><span class="calib__dot calib__dot--correct" aria-hidden="true"></span> 정답
+            <span class="calib__dot" aria-hidden="true"></span> 오답 · 동그라미 하나 = 예측 한 건</p>
+          <div class="calib__dots" id="calib-dots" aria-hidden="true"></div>
+          <p class="calib__fraction" id="calib-fraction" aria-live="polite"></p>
+          <p class="calib__comparison" id="calib-comparison"></p>
+        </div>
+      </div>
       <div class="calib__side">
-        <button class="chip" type="button" id="calib-drop">다시 쏟기 ↓</button>
+        <button class="chip" type="button" id="calib-drop">새 표본 200개</button>
         <div class="calib__slider">
           <label for="overconf">과신 정도</label>
           <input type="range" id="overconf" min="0" max="1" step="0.01" value="0">
           <span id="overconf-val">0.00</span>
         </div>
         <p class="calib__note" id="calib-note"></p>
+        <p class="calib__note">회색 점선: 말한 확률과 실제 정답률이 같은 기준선.<br>분홍 선: 이번 표본에서 관찰한 정답률.</p>
       </div>
     </div>
   </section>
 
   <p class="bridge reveal">
-    보정된 확률을 받으면 코드가 명시한 임계값으로 세 경로를 나눌 수 있습니다.
-  </p>
-
-  <!-- Advanced: Structure -->
-  <section class="act reveal" id="act-structure">
-    <header class="act__head">
-      <p class="masthead__eyebrow">Advanced: Structure</p>
-      <h2 class="act__title">Structure — 질문을 조합해 객체를 만든다</h2>
-      <p class="masthead__lede">
-        <strong>Structure</strong>는 독립 SDK 타입이 아니라, 여러 질문을 묶고 응답을 앱 객체로 조합하는 패턴입니다.
-        각 필드가 하나의 질문(Choice / Score / Noul)이고, 모델이 필드별 분포를 돌려주면
-        그 답들을 앱이 객체로 조립합니다. Choice와 Score에는 confidence가 있고, Noul은 noul 확률만
-        돌려줍니다. boolean 변환은 애플리케이션 코드의 별도 단계입니다.
-        버튼을 눌러 필드가 채워지는 과정을 보세요.
-      </p>
-    </header>
-
-    <pre class="struct__req" id="struct-req"></pre>
-    <div class="struct">
-      <div class="struct__fields" id="struct-fields"></div>
-      <div class="struct__arrow">→</div>
-      <pre class="struct__json" id="struct-json"></pre>
-    </div>
-    <div class="act__controls">
-      <button class="chip" type="button" id="struct-run">Ticket 객체 조립 →</button>
-    </div>
-  </section>
-
-
-  <p class="bridge reveal">
-    조합한 객체를 실제 코드의 판단 경로에 연결해 보겠습니다.
+    확률의 신뢰성은 실제 데이터로 확인해야 합니다. 마지막으로 담당 팀의 confidence를 읽어
+    <strong>배정 전에 얼마나 검토할지</strong> 정해 보겠습니다. 아래 임계값은 운영 기준의 예시이지 권장값은 아닙니다.
   </p>
 
   <!-- Act 5: code branches on confidence -->
   <section class="act reveal">
     <header class="act__head">
       <p class="masthead__eyebrow">Routing</p>
-      <h2 class="act__title">코드가 분기한다</h2>
+      <h2 class="act__title">담당 팀을 배정할까, 먼저 검토할까</h2>
       <p class="masthead__lede">
-        확률과 confidence는 감상용이 아닙니다. 코드는 그 값으로 행동을 나눕니다.
-        티켓이 게이트를 지나며 세 경로로 갈라집니다 — 임계값을 움직여 보세요.
-        고위험 작업일수록 자동 처리의 문턱은 높아야 합니다.
+        임계값은 행동을 나누는 기준선입니다. 담당 팀 판단의 confidence가 하한보다 낮으면 사람이 검토하고,
+        상한 이상이면 해당 팀에 자동 배정합니다. 그 사이는 재확인합니다.
+        <strong>팀 배정은 환불 승인이나 문제 해결이 아닙니다.</strong> 앞선 예시처럼 자동 해결 가능성이 낮아도
+        담당 팀은 명확할 수 있습니다. 실제 해결은 별도 판단과 업무 규칙이 필요합니다.
       </p>
     </header>
 
@@ -261,7 +311,7 @@
           <span id="th-low-val">0.50</span>
         </div>
         <div class="calib__slider">
-          <label for="th-high">상한 (자동 처리 ↑)</label>
+          <label for="th-high">상한 (자동 배정 ↑)</label>
           <input type="range" id="th-high" min="0" max="1" step="0.01" value="0.9">
           <span id="th-high-val">0.90</span>
         </div>
@@ -269,19 +319,16 @@
       </div>
       <div class="pipe__counters" id="pipe-counters"></div>
     </div>
+    <p class="masthead__lede">아래 코드는 같은 기준으로 배정 경로를 고릅니다.
+      각 함수는 앱에서 정의할 처리 절차입니다. 카운터는 페이지를 연 뒤의 누적값으로, 이전 임계값의 결과도 포함합니다.</p>
     <pre class="routing__code" id="routing-code"></pre>
   </section>
 
-  <p class="bridge reveal">
-    여러 질문의 결과를 앱 객체로 조립하면, 판단을 다음 코드에 전달할 수 있습니다.
-  </p>
-
-
   <!-- Epilogue -->
   <section class="act act--epi reveal">
-    <p class="epi__lead">위 Routing 코드는 슬라이더의 현재 임계값을 그대로 반영합니다.</p>
-    <p class="epi">생성 대신 판단, 문장 대신 분포,<br>프롬프트 엔지니어링 대신 임계값 설계.</p>
-    <p class="epi__next">Jev의 대표 활용처 중 하나가 LLM 라우터입니다 → <a href="/experiments/model-routing/">02. Model Routing</a></p>
+    <p class="epi__lead">임계값은 모델의 답이 아니라, 불확실성을 어떻게 다룰지 정하는 애플리케이션의 정책입니다.</p>
+    <p class="epi">질문은 타입으로, 판단은 분포로,<br>불확실성은 정책으로.</p>
+    <p class="epi__next">Jev는 생성할 문장을 맡기는 대신, 코드가 읽고 행동할 수 있는 판단을 요청합니다.</p>
   </section>
 
   <footer class="colophon">
@@ -298,7 +345,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <script src="/assets/site/backdrop.js"></script>
-<script src="./data.js"></script>
-<script src="./main.js"></script>
+<script src="./data.js?v=20260922-structure"></script>
+<script src="./main.js?v=20260922-structure"></script>
 </body>
 </html>
