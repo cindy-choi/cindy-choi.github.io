@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>흩어진 메모리에서, 문맥은 순서대로 · Paged Attention</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/site/palette.css">
+<link rel="stylesheet" href="/assets/site/style.css">
+<link rel="stylesheet" href="./paged-attention.css?v=20260929-motion">
+</head>
+<body>
+<canvas id="backdrop"></canvas>
+<main class="page page--wide">
+<a class="back" href="/">&#8592; Index</a>
+<header class="masthead"><p class="masthead__eyebrow">Experiment · Paged Attention</p><h1 class="masthead__title">흩어진 메모리에서, 문맥은 순서대로</h1><p class="masthead__lede"><strong>Paged Attention</strong>은 KV cache를 블록 단위로 다루어 흩어진 메모리에서 문맥을 순서대로 읽는 방법입니다. vLLM 논문을 바탕으로 한 교육용 모델입니다.</p></header>
+<section class="act act--first reveal" id="act-1" data-act="1"><header class="act__head"><p class="masthead__eyebrow">01 · Prefill / Decode</p><h2 class="act__title">답이 길어질수록 무엇이 남을까?</h2><p class="masthead__lede">prompt 네 토큰은 prefill로 한 번에, 답은 decode로 한 칸씩 KV cache에 쌓입니다. 모델 가중치는 그대로이고 캐시만 자랍니다.</p></header><div class="stage"><svg id="act1-svg" class="scene-svg" viewBox="0 0 1080 260" role="img" aria-label="토큰과 KV cache의 누적"></svg><div class="toolbar"><button class="icon" id="act1-play" aria-label="재생 또는 일시정지" title="재생 또는 일시정지"></button><button class="icon" id="act1-next" aria-label="다음 단계" title="다음 단계"></button><button class="icon" id="act1-reset" aria-label="초기화" title="초기화"></button><output id="act1-readout" role="status"></output></div></div></section>
+<p class="bridge reveal">끝날 길이를 모르는데, 자리는 얼마나 잡아둬야 할까요?</p>
+<section class="act reveal" id="act-2" data-act="2"><header class="act__head"><p class="masthead__eyebrow">02 · Allocation</p><h2 class="act__title">비어 있는데 들어가지 않는다</h2><p class="masthead__lede">두 번째 질문 “그럼 고양이는 밤에 주로 뭘 해?”는 6토큰, 즉 KV 6칸이 필요합니다. 빈칸의 합은 충분해도 이어져 있지 않으면 들어가지 못합니다.</p></header><div class="stage"><svg id="act2-svg" class="scene-svg" viewBox="0 0 1080 430" role="img" aria-label="연속 풀과 paged 풀 비교"></svg><div class="toolbar"><button class="icon" id="act2-next" aria-label="다음 단계" title="다음 단계"></button><button class="icon" id="act2-reset" aria-label="초기화" title="초기화"></button><output id="act2-readout" role="status"></output></div></div></section>
+<p class="bridge reveal">빈 블록을 골랐다면, 토큰의 순서는 어디에 기록될까요?</p>
+<section class="act reveal" id="act-3" data-act="3"><header class="act__head"><p class="masthead__eyebrow">03 · Block Table</p><h2 class="act__title">순서는 주소표에 남는다</h2><p class="masthead__lede">물리 ID 순서로 짚으면 틀립니다. 주소표(L, offset)만이 토큰의 실제 위치를 찾습니다.</p></header><div class="stage"><svg id="act3-svg" class="scene-svg" viewBox="0 0 1080 500" role="img" aria-label="논리 블록 주소표와 물리 블록"></svg><div class="toolbar"><button class="icon" id="act3-play" aria-label="재생 또는 일시정지" title="재생 또는 일시정지"></button><button class="icon" id="act3-next" aria-label="다음 단계" title="다음 단계"></button><button class="icon" id="act3-reset" aria-label="초기화" title="초기화"></button><label for="act3-token">토큰 <output id="act3-token-value">6</output></label><input id="act3-token" type="range" min="0" max="9" value="6"><output id="act3-readout" role="status"></output></div></div></section>
+<p class="bridge reveal">주소만 바뀌었다면, attention은 정말 같은 결과를 읽을 수 있을까요?</p>
+<section class="act reveal" id="act-4" data-act="4"><header class="act__head"><p class="masthead__eyebrow">04 · Attention Read</p><h2 class="act__title">흩어져 있어도 같은 attention이다</h2><p class="masthead__lede">Q를 돌려도 연속·paged의 출력은 같습니다. softmax는 전체 문맥에 한 번만 적용됩니다.</p></header><div class="stage"><svg id="act4-svg" class="scene-svg" viewBox="0 0 1080 330" role="img" aria-label="Q K 평면과 attention weight"></svg><div class="toolbar"><button class="icon" id="act4-play" aria-label="재생 또는 일시정지" title="재생 또는 일시정지"></button><button class="icon" id="act4-next" aria-label="다음 단계" title="다음 단계"></button><button class="icon" id="act4-reset" aria-label="초기화" title="초기화"></button><button class="toggle is-active" id="act4-contiguous">연속</button><button class="toggle" id="act4-paged">paged</button><label for="act4-angle">Q 각도 <output id="act4-angle-value">0</output>°</label><input id="act4-angle" type="range" min="-180" max="180" value="0"><output id="act4-readout" role="status"></output></div></div></section>
+<p class="bridge reveal">문맥이 자라면, 빈 꼬리까지 계속 예약해야 할까요?</p>
+<section class="act reveal" id="act-5" data-act="5"><header class="act__head"><p class="masthead__eyebrow">05 · Incremental Allocation</p><h2 class="act__title">필요한 만큼 받고, 끝나면 돌려준다</h2><p class="masthead__lede">블록은 실제 길이만큼 받고, 끝나면 풀로 돌아갑니다. 마지막 블록의 빈 꼬리(tail)는 남습니다.</p></header><div class="stage"><svg id="act5-svg" class="scene-svg" viewBox="0 0 1080 330" role="img" aria-label="예약과 paged lifecycle 비교"></svg><div class="toolbar"><button class="icon" id="act5-play" aria-label="재생 또는 일시정지" title="재생 또는 일시정지"></button><button class="icon" id="act5-next" aria-label="다음 단계" title="다음 단계"></button><button class="icon" id="act5-reset" aria-label="초기화" title="초기화"></button><button class="toggle" id="act5-b2">B=2</button><button class="toggle is-active" id="act5-b4">B=4</button><button class="toggle" id="act5-b8">B=8</button><output id="act5-readout" role="status"></output></div></div></section>
+<p class="bridge reveal">같은 질문을 다시 풀 때도, 모든 KV를 새로 복사해야 할까요?</p>
+<section class="act reveal" id="act-6" data-act="6"><header class="act__head"><p class="masthead__eyebrow">06 · Sharing + COW</p><h2 class="act__title">함께 읽고, 달라질 때만 복사한다</h2><p class="masthead__lede">A안과 B안이 같은 prompt 블록을 함께 읽습니다. 쓰는 순간에만 그 블록 하나를 복사합니다.</p></header><div class="stage"><svg id="act6-svg" class="scene-svg" viewBox="0 0 1080 430" role="img" aria-label="공유 prefix와 copy on write"></svg><div class="toolbar"><button class="icon" id="act6-play" aria-label="재생 또는 일시정지" title="재생 또는 일시정지"></button><button class="icon" id="act6-next" aria-label="다음 단계" title="다음 단계"></button><button class="icon" id="act6-reset" aria-label="초기화" title="초기화"></button><button class="toggle is-active" id="act6-p6">6-token</button><button class="toggle" id="act6-p8">8-token</button><output id="act6-readout" role="status"></output></div></div></section>
+<section class="epilogue reveal"><p class="masthead__eyebrow">Epilogue</p><h2>순서는 주소표에, KV는 빈 블록에. 같은 앞부분은 함께 읽고, 달라지는 블록만 따로 씁니다.</h2><p>원 논문을 설명하는 교육용 모델입니다. 실제 vLLM 내부 구현이나 벤치마크가 아닙니다.</p></section>
+<footer class="colophon"><span>arXiv 2309.06180</span><span><a href="https://arxiv.org/abs/2309.06180">논문</a> · <a href="https://blog.vllm.ai/2023/06/20/vllm.html">vLLM blog</a></span></footer>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+<script src="/assets/site/backdrop.js"></script>
+<script src="./data.js?v=20260929-motion"></script>
+<script src="./main.js?v=20260929-motion"></script>
+</body>
