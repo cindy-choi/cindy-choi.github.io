@@ -2,35 +2,166 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<title>Agent Loop — Interactive AI Notes</title>
+<title>Agent Loop — 주간보고 작성해줘</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/site/palette.css">
 <link rel="stylesheet" href="/assets/site/style.css">
+<link rel="stylesheet" href="./graphic.css">
+<link rel="stylesheet" href="./loop.css">
 </head>
 <body>
 
-<canvas id="backdrop"></canvas>
-
-<main class="page">
+<main class="page loop-page">
 
   <a class="back" href="/">&#8592; Index</a>
 
   <header class="masthead">
-    <p class="masthead__eyebrow">Experiment 03</p>
-    <h1 class="masthead__title">Agent Loop</h1>
-    <p class="masthead__lede">에이전트가 계획하고 도구를 고르고 실행·관찰·재시도하는 과정을 상태 그래프로 따라갑니다.</p>
+    <p class="masthead__eyebrow">Experiment 02 / Agent Loop</p>
+    <h1 class="masthead__title">주간보고 작성해줘</h1>
+    <p class="masthead__lede">harness는 모델을 반복해서 호출합니다. 모델은 매번 다음 행동 하나를 정합니다.</p>
+    <p class="run-setting">보고 기간 2026-09-28 ~ 2026-10-04 · Asia/Seoul</p>
   </header>
 
-  <section class="stage" id="stage">
-    stage
+  <section class="scrolly loop-scrolly" data-loop aria-label="요청 접수와 첫 model call">
+    <div class="scrolly__stage" data-loop-stage><p class="graphic-caption" data-loop-caption></p></div>
+    <div class="scrolly__steps">
+      <article class="step" data-scene="A"><span class="step__index mono">A / REQUEST</span><h2>요청은 먼저<br>harness가 받는다.</h2><p>사용자가 주간보고를 요청합니다. harness는 모델 바깥에서 모델 호출과 도구 실행을 반복하는 프로그램입니다. harness가 요청을 받고 처리를 시작합니다. 아직 업무 데이터는 없습니다.</p></article>
+      <article class="step" data-scene="B"><span class="step__index mono">B / PREPARE</span><h2>harness가<br>첫 context를 만든다.</h2><p>harness는 system prompt, tool definitions, 보고 기간, skill catalog, 사용자 요청을 모읍니다. 이 묶음이 context입니다. context는 모델이 한 번의 호출에서 읽는 입력 전체입니다.</p></article>
+      <article class="step" data-scene="C"><span class="step__index mono">C / OUTPUT</span><h2>모델은 보고서 대신<br>tool call을 출력한다.</h2><p>업무 데이터가 없으므로 모델은 작성 절차부터 요청합니다. 모델의 출력은 tool call 또는 final response입니다. tool call은 도구 실행 요청이고, final response는 사용자에게 줄 답입니다. harness는 출력이 둘 중 무엇인지 확인합니다.</p></article>
+    </div>
   </section>
 
+  <aside class="bridge"><span class="eyebrow">ZOOM · read_skill</span><p>harness가 스킬 파일을 읽는 과정을 확대해서 봅니다. 마지막 두 장면은 파일이 수정됐을 때를 비교합니다. 파일 수정은 작성자의 행동이며 루프의 단계가 아닙니다.</p></aside>
+
+  <section class="scrolly" id="skill-scrolly" aria-label="스킬 활성화와 개정 과정">
+    <div class="scrolly__stage">
+      <div class="graphic" id="graphic" role="img" aria-label="skill catalog와 context">
+        <div class="graphic-heading"><span>SKILL LIBRARY</span><span id="call-label">MODEL CALL 01</span></div>
+        <div class="library">
+          <div class="library-item muted-item"><span>01</span>meeting-notes</div>
+          <div class="library-item selected-item"><span>02</span>weekly-report<span id="store-badge" class="version">v1</span></div>
+          <div class="catalog-description">업무 데이터를 주간 보고로 정리한다.</div>
+          <div class="library-item muted-item"><span>03</span>release-summary</div>
+        </div>
+        <div class="input-stack">
+          <div class="input-layer"><span>SYSTEM PROMPT</span><p>근거 없는 실적을 만들지 않는다.</p></div>
+          <div class="input-layer"><span>USER</span><p>주간보고 작성해줘</p></div>
+          <div class="input-layer"><span>SKILL CATALOG</span><p>weekly-report · 이름과 설명</p></div>
+          <div class="skill-slot"><span>TOOL RESULT</span></div>
+        </div>
+        <div class="read-route"><span id="route-label">read_skill → harness → 본문</span></div>
+        <div class="source-document" id="source-document"><div class="document-heading"><span>weekly-report</span><b>v2</b></div><p>완료 업무 수집</p><p class="new-rule"><span class="rule-label">+ 추가 규칙</span>재개 업무 → 진행 중</p><p>항목별 출처 연결</p></div>
+        <div class="skill-document" id="skill-document"><div class="document-heading"><span>weekly-report</span><b id="document-version">v1</b></div><div class="document-body"><p>완료 업무 수집</p><p id="document-rule"><span class="rule-label" id="rule-label">기존 규칙</span><span id="rule-text">재개 업무 규칙 없음</span></p><p>항목별 출처 연결</p></div><span class="document-origin">read_skill 결과</span></div>
+        <div class="frozen-copy" id="frozen-copy"><span>CALL 02 · context</span><strong>weekly-report <b>v1</b></strong></div>
+        <div class="action-result"><span>NEXT TOOL CALL</span><strong>search_work</strong><p>status history: <b id="history-value">제외</b></p></div>
+        <div class="graphic-progress" aria-hidden="true"><span></span></div>
+      </div>
+      <p id="graphic-caption" class="graphic-caption"></p>
+    </div>
+
+    <div class="scrolly__steps">
+      <article class="step"><span class="step__index mono">01 / DISCOVER</span><h2>모델은 먼저<br>skill catalog를 받는다.</h2><p>스킬은 작업 절차를 적은 파일입니다. skill catalog는 스킬의 이름과 설명 목록입니다. 이때는 파일 본문을 받지 않습니다.</p></article>
+      <article class="step"><span class="step__index mono">02 / READ</span><h2>harness가<br>파일을 읽는다.</h2><p>모델은 read_skill tool call로 weekly-report 파일을 요청합니다. harness는 파일 본문을 읽어 tool result로 돌려줍니다.</p></article>
+      <article class="step"><span class="step__index mono">03 / ASSEMBLE</span><h2>모델은 본문을 보고<br>업무 조회를 요청한다.</h2><p>harness는 tool result를 다음 호출의 context에 넣습니다. 모델은 이 context를 받아 다시 응답합니다. 이번에는 본문의 절차에 따라 업무 조회를 요청합니다.</p></article>
+      <article class="step"><span class="step__index mono">04 / REVISE</span><h2>v2에는<br>규칙 하나가 추가된다.</h2><p>두 버전 모두 완료 업무 수집, 보고서 분류, 출처 연결을 수행합니다. 차이는 완료 후 다시 시작한 업무의 처리입니다.</p><dl class="version-comparison"><div><dt>v1 · 기존 파일</dt><dd>재개 업무의 처리 규칙 없음</dd></div><div><dt>v2 · 수정한 파일</dt><dd><strong>+ 재개 업무는 진행 중으로 분류</strong></dd></div></dl><p>왼쪽 파일은 v2로 수정했습니다. 오른쪽 context에는 아직 v1이 남아 있습니다.</p></article>
+      <article class="step"><span class="step__index mono">05 / RELOAD</span><h2>모델은 새 규칙에 따라<br>조회 조건을 바꾼다.</h2><p>harness는 v2 본문을 다시 읽어 다음 호출의 context에 넣습니다. 모델은 새 규칙에 따라 status history도 요청합니다. status history는 업무 상태가 바뀐 이력입니다. 이전 context의 v1 본문은 그대로 남습니다.</p></article>
+    </div>
+  </section>
+
+  <details class="technical-detail"><summary>context와 tool call</summary><p>model call은 모델에 context를 보내 응답을 받는 한 번의 과정입니다. harness는 파일 본문을 tool result로 다음 context에 넣습니다. read_skill은 파일 읽기 tool call이고, search_work는 업무 조회 tool call입니다. include_status_history가 false이면 status history를 조회하지 않고, true이면 함께 조회합니다. 아래 데이터는 설명용 예시입니다. 실제 API 규격이 아니며, 실제 업무를 조회하지 않습니다.</p><div class="technical-columns"><section><h3>모델에 전달한 context</h3><div id="context-blocks"></div></section><section><h3>현재 단계의 데이터</h3><pre id="payload"></pre></section></div></details>
+
+  <aside class="bridge"><span class="eyebrow">BACK TO THE LOOP</span><p>메인 흐름으로 돌아갑니다. 모델은 v2 절차를 받았고, status history를 포함한 search_work tool call을 출력했습니다. 이것이 model call ②의 출력입니다. 비교용 v1 조회는 실행하지 않았습니다.</p></aside>
+
+  <section class="scrolly loop-scrolly" data-loop aria-label="도구 실행과 반복, final response">
+    <div class="scrolly__stage" data-loop-stage><p class="graphic-caption" data-loop-caption></p></div>
+    <div class="scrolly__steps">
+      <article class="step" data-scene="D"><span class="step__index mono">D / EXECUTE</span><h2>모델은 요청만 한다.<br>실행은 harness가 한다.</h2><p>harness는 출력이 tool call인지 확인합니다. 허용된 도구인지와 인자를 검사합니다. 그다음 업무 데이터를 조회합니다. 모델은 아직 결과를 받지 않았습니다.</p></article>
+      <article class="step" data-scene="E"><span class="step__index mono">E / RECORD</span><h2>tool result는<br>새 호출의 context로 들어간다.</h2><p>harness는 tool call과 tool result를 history에 추가합니다. history는 지금까지 오간 요청, tool call, tool result의 목록입니다. model call ②는 이미 끝났고, 그 context도 바뀌지 않습니다. harness는 history를 넣어 model call ③을 새로 시작합니다.</p></article>
+      <article class="step" data-scene="F"><span class="step__index mono">F / DECIDE</span><h2>빠진 정보가<br>다음 행동을 정한다.</h2><p>조회 결과에 재개 사유와 다음 조치가 없습니다. 모델은 WORK-17의 상세 데이터를 요청합니다. harness는 같은 방법으로 검사하고 실행합니다.</p></article>
+      <article class="step" data-scene="G"><span class="step__index mono">G / REPEAT</span><h2>같은 순서가<br>한 번 더 돈다.</h2><p>harness는 상세 결과를 history에 추가하고 model call ④를 시작합니다. 첫 조회 결과는 그대로 남습니다. 이제 context에 보고서에 필요한 근거가 있습니다.</p></article>
+      <article class="step" data-scene="H"><span class="step__index mono">H / RESPOND</span><h2>final response가 나오면<br>반복이 끝난다.</h2><p>모델은 tool call 대신 보고서를 출력합니다. harness는 출력이 final response인지 확인합니다. harness는 보고서를 사용자에게 전달하고 실행을 끝냅니다. 보고서를 발송하지는 않습니다.</p></article>
+    </div>
+  </section>
+
+  <section class="run-record" aria-labelledby="run-record-title">
+    <p class="eyebrow">TRACE</p>
+    <h2 id="run-record-title">model call 네 번.<br>tool call 세 번.</h2>
+    <p>모델은 매번 다음 행동 하나를 출력합니다. harness는 출력이 tool call이면 도구를 실행하고 모델을 다시 호출합니다. final response이면 끝냅니다. trace는 이 과정을 순서대로 남긴 실행 로그입니다.</p>
+    <ol class="run-list" id="run-list" aria-label="model call trace"></ol>
+    <p class="run-note">모든 데이터는 설명용 예시입니다. 실제 모델이나 업무 시스템을 호출하지 않습니다.</p>
+    <div class="run-columns">
+      <section class="run-report"><h3>사용자에게 전달한 보고서</h3><p class="mono">주간보고 | 2026-09-28 ~ 2026-10-04</p><div id="run-report"></div></section>
+      <section class="run-stops"><h3>다른 경로</h3><ul>
+        <li>결과가 충분했다면 모델은 model call ③에서 바로 final response를 출력합니다.</li>
+        <li>보고 기간이 없으면 모델은 사용자에게 기간을 물을 수 있습니다.</li>
+        <li>권한 거부: harness는 허용되지 않은 도구나 인자를 실행하지 않습니다.</li>
+        <li>도구 오류: harness는 오류를 tool result로 모델에 전달하거나 실행을 멈춥니다.</li>
+        <li>사용자 취소: harness는 반복을 멈춥니다.</li>
+        <li>반복 한도: 이 예시는 tool call을 최대 10회로 제한합니다.</li>
+      </ul></section>
+    </div>
+  </section>
+
+  <p id="announcement" class="sr-only" role="status" aria-live="polite"></p>
+  <section class="next-chapter"><p class="eyebrow">THE BOUNDARY</p><h2>새 규칙을 쓰려면,<br>새 본문을 context에 넣어야 한다.</h2><p>파일만 수정하면 모델은 새 규칙을 받지 못합니다. harness가 수정한 본문을 읽어 다음 context에 넣어야 합니다. 이 과정은 모델의 가중치(weights)를 바꾸지 않습니다.</p><div class="skill-diff"><span class="mono">v1 → v2</span><p>+ 보고 기준 시점의 업무 상태를 확인한다.<br>+ 완료 후 다시 시작한 업무는 진행 중으로 분류한다.</p></div></section>
+  <footer class="loop-footer"><span>이 예시는 로컬 파일을 다시 읽는 방식입니다.<br>파일을 읽어도 도구의 실행 권한은 바뀌지 않습니다.</span><a href="https://agentskills.io/integrate-skills" target="_blank" rel="noopener noreferrer">Agent Skills 통합 가이드 ↗</a></footer>
+  <noscript>이 실험을 실행하려면 JavaScript가 필요합니다.</noscript>
 </main>
 
-<script src="/assets/site/backdrop.js"></script>
+<template id="loop-template">
+  <div class="loop-graphic" role="img" aria-label="harness와 model call">
+    <div class="loop-user">
+      <span class="loop-label">USER</span>
+      <p class="loop-request" data-anchor="request">주간보고 작성해줘</p>
+      <div class="loop-response"><span class="loop-label">final response</span><p data-response>아직 없음</p></div>
+    </div>
+    <div class="loop-runtime">
+      <div class="loop-head"><span>harness</span><span data-status>idle</span></div>
+      <ol class="loop-phases">
+        <li data-phase="prepare">build context</li>
+        <li data-phase="call">call model</li>
+        <li data-phase="check">check output</li>
+        <li data-phase="execute">run tool</li>
+        <li data-phase="record">append result</li>
+      </ol>
+      <p class="loop-repeat">↺ append result 후 build context로</p>
+      <p class="loop-counter">tool calls <b data-counter>0</b> / 10</p>
+      <div class="loop-tools">
+        <span class="loop-label">tools</span>
+        <ul>
+          <li data-tool="read_skill">read_skill · 스킬 파일</li>
+          <li data-tool="search_work">search_work · 업무 시스템</li>
+          <li data-tool="get_work_detail">get_work_detail · 업무 시스템</li>
+        </ul>
+        <div class="loop-dock" data-dock>
+          <div class="loop-docked" data-docked></div>
+          <p class="loop-checks"><span data-check>allowlist</span><span data-check>args</span></p>
+          <div class="loop-result" data-result></div>
+        </div>
+      </div>
+    </div>
+    <div class="loop-model">
+      <div class="loop-card" data-card>
+        <div class="loop-head"><span data-call-label>model call</span><span data-card-state>호출 전</span></div>
+        <ul class="loop-base" aria-label="context">
+          <li>system prompt</li><li>tool definitions</li><li>보고 기간</li><li>skill catalog</li><li>user message</li>
+        </ul>
+        <ol class="loop-records" data-records></ol>
+        <div class="loop-output">
+          <span class="loop-label">output</span>
+          <div class="loop-output-doc" data-output></div>
+          <p class="loop-exits"><span data-exit="tool">← tool call → harness</span><span data-exit="final">↑ final response → user</span></p>
+        </div>
+      </div>
+    </div>
+    <div class="loop-ledger"><span class="loop-label">call log</span><span data-ledger></span></div>
+    <div class="loop-mover" data-mover></div>
+  </div>
+</template>
+
 <script src="./main.js"></script>
 </body>
 </html>
